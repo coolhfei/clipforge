@@ -513,9 +513,12 @@ export async function POST(
         // 封面缩略图：抽首帧存成片旁（本地抽取永不过期），作品流/项目卡靠它凭画面找片；失败不阻断
         const thumbnailPath = await extractFirstFrame(outputPath);
         // 完成：更新合成记录与项目状态
+        // Persist bgmPath as well: credits and the release gate both read compositions.bgmPath to
+        // locate the BGM's .credit.json provenance sidecar, but nothing ever wrote the column, so
+        // BGM licensing (free CC attribution included) never reached the manifest.
         await db
           .update(compositions)
-          .set({ outputPath, status: "done", ...(thumbnailPath && { thumbnailPath }) })
+          .set({ outputPath, status: "done", ...(thumbnailPath && { thumbnailPath }), ...(bgmLocal && { bgmPath: bgmLocal }) })
           .where(eq(compositions.id, comp.id));
         await db.update(projects).set({ status: "done", updatedAt: new Date() }).where(eq(projects.id, id));
       } catch (e) {
