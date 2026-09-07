@@ -307,10 +307,17 @@ describe("一键整片：模型解析与时长适配", () => {
 });
 
 describe("一键整片：花费预估", () => {
-  it("estimateFilmSpend：基准档下 min=max=单价 x 秒数", () => {
-    expect(estimateFilmSpend(0.134, 30, { width: 720, height: 1280 })).toEqual({
+  it("estimateFilmSpend：基准档(480p)下 min=max=单价 x 秒数", () => {
+    expect(estimateFilmSpend(0.134, 30, { width: 480, height: 854 })).toEqual({
       unitUsd: 0.134, seconds: 30, minUsd: 4.02, maxUsd: 4.02, tierMultiplier: 1,
     });
+  });
+
+  it("estimateFilmSpend：档位按短边判定——竖屏 720p 是 720x1280，不能当成 1080 档", () => {
+    // measured 2026-09: Wan 3.0 billed $0.40 for 5s @720p — 2x its $0.04 base rate
+    const p720 = estimateFilmSpend(0.04, 5, { width: 720, height: 1280 })!;
+    expect(p720.tierMultiplier).toBe(2);
+    expect(p720.maxUsd).toBe(0.4);
   });
 
   it("estimateFilmSpend：高分辨率档按实测倍率放大上限（低报才是危险方向）", () => {

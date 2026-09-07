@@ -117,13 +117,19 @@ export interface FilmSpendEstimate {
  *
  *   Seedance 2.5 @1080p  $2.98 / 5s = $0.596/s  vs  $0.134 base  ->  4.45x
  *   Wan 3.0      @1080p  $0.80 / 5s = $0.160/s  vs  $0.040 base  ->  4.00x
+ *   Wan 3.0      @720p   $0.40 / 5s = $0.080/s  vs  $0.040 base  ->  2.00x
  *
- * Rounded UP on purpose. A quoted price that reads low is exactly what let a 30s run bill
- * several times its advertised rate without anyone noticing (issue #28), so the spend cap
- * compares against the high end, never the floor.
+ * The published base rate therefore tracks the lowest tier (480p), not 720p, and the steps
+ * follow pixel count (each tier is ~2.25x the pixels of the one below). Rounded UP on purpose:
+ * a quoted price that reads low is exactly what let a 30s run bill several times its advertised
+ * rate without anyone noticing (issue #28), so the spend cap compares against the high end.
+ *
+ * Sanity check against that report: $0.134 x 30s x 4.5 = $18.1, against an actual bill of ~$22
+ * on the pricier 1080p-sr upscale tier.
  */
 export const RESOLUTION_COST_MULTIPLIER: { minHeight: number; multiplier: number }[] = [
   { minHeight: 1080, multiplier: 4.5 },
+  { minHeight: 720, multiplier: 2 },
 ];
 
 /**
