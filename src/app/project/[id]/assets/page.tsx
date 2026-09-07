@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useSettingsStore } from "@/lib/stores/settings-store";
 import { mergeCustomModels, buildImageOptions, buildVideoOptions, toEditVariant } from "@/lib/gen-params";
+import { resolveFilmModel } from "@/lib/storyboard-film";
 import { useCharacterStore } from "@/lib/stores/project-store";
 import type { Shot } from "@/lib/db/schema";
 import { buildAssetRows, shouldOfferStockFill, needsImageModelWarning, nextChainKeyframe, type AssetItem, chainByDefault } from "@/lib/assets-view";
@@ -877,10 +878,10 @@ export default function AssetsPage() {
         body: JSON.stringify({
           scriptId,
           provider: videoModelTarget.provider,
-          // an explicitly configured reference-to-video model wins; anything else upgrades to the 2.5 film default
-          model: videoModelTarget.model.includes("/reference-to-video")
-            ? videoModelTarget.model
-            : "bytedance/seedance-2.5/reference-to-video",
+          // shared resolver: an explicitly configured reference-to-video model wins, anything else
+          // falls back to the film default. NOTE: unlike the script page this surface has no
+          // confirm gate yet, so a fallback still bills without asking (issue #28 follow-up).
+          model: resolveFilmModel(videoModelTarget.model).model,
           apiKey: videoModelTarget.apiKey,
           baseUrl: videoModelTarget.baseUrl,
           // presenter sheet leads reference_images as the identity anchor (@Image1)

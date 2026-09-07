@@ -12,17 +12,15 @@ import {
   buildStoryboardFilmPrompt,
   dialogueDensityWarnings,
   filmTotalSeconds,
-  filmRequestSeconds,
+  filmDurationFit,
   referenceQuotaCheck,
+  resolveFilmModel,
   FILM_MAX_SECONDS,
 } from "@/lib/storyboard-film";
 import { toRemoteUsableImage } from "@/lib/remote-image";
 import { probeMedia } from "@/lib/media-probe";
 import { recordAiTask, updateAiTask } from "@/lib/ai-tasks";
 import { apiError, errText } from "@/lib/api-error";
-
-/** Default model for the one-call film pass — Seedance 2.5 reference-to-video (4-30s, native speech) */
-const DEFAULT_FILM_MODEL = "bytedance/seedance-2.5/reference-to-video";
 
 const IMAGE_EXT_RE = /\.(png|jpe?g|webp|bmp|gif)$/i;
 
@@ -96,6 +94,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       );
     }
 
+    // the model that will actually be billed — resolved identically on both branches, so the
+    // preview names the same model the paid submit uses (issue #28)
+    const choice = resolveFilmModel(model);
+    const fit = filmDurationFit(shots, choice.model);
+
     if (dryRun) {
       const prompt = buildStoryboardFilmPrompt(shots, script.characters, { characterSheet: !!characterSheetUrl });
       // planned reference count: one keyframe per shot (+ the identity sheet when present) —
@@ -105,11 +108,28 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         dryRun: true,
         prompt,
         shotCount: shots.length,
-        seconds: filmRequestSeconds(shots),
+        seconds: fit.seconds,
+        model: choice.model,
+        ...(choice.swappedFrom && { swappedFrom: choice.swappedFrom }),
+        scriptSeconds: fit.scriptSeconds,
+        modelMaxSeconds: fit.cap,
+        durationOverflow: fit.overflow,
         referenceImages: plannedRefs,
-        referenceQuota: referenceQuotaCheck(plannedRefs, model || DEFAULT_FILM_MODEL),
+        referenceQuota: referenceQuotaCheck(plannedRefs, choice.model),
         dialogueWarnings: dialogueDensityWarnings(shots),
       });
+    }
+
+    // pre-spend duration gate: a script longer than the chosen model can render comes back
+    // silently truncated (the provider snaps the request down to its own ceiling), so refuse
+    // rather than bill for a film that loses its tail
+    if (fit.overflow) {
+      return apiError(
+        req,
+        `脚本总时长 ${fit.scriptSeconds} 秒超过 ${choice.model} 的单次上限 ${fit.cap} 秒——继续会把后半段截掉。请缩短脚本，或换一个支持更长时长的模型`,
+        `The ${fit.scriptSeconds}s script exceeds ${choice.model}'s ${fit.cap}s single-generation ceiling — generating would silently cut the tail. Shorten the script or pick a longer-form model`,
+        400
+      );
     }
 
     // past the dryRun branch money moves — provider and key become mandatory
@@ -144,7 +164,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const refInputs = [...(characterSheetUrl ? [characterSheetUrl] : []), ...keyframes];
     // pre-spend quota gate: a reference count over the model's schema limit is a guaranteed
     // upstream rejection — block BEFORE the paid submit instead of paying to find out
-    const quota = referenceQuotaCheck(refInputs.length, model || DEFAULT_FILM_MODEL);
+    const quota = referenceQuotaCheck(refInputs.length, choice.model);
     if (!quota.ok) {
       return apiError(
         req,
@@ -158,7 +178,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     );
 
     const prompt = buildStoryboardFilmPrompt(shots, script.characters, { characterSheet: !!characterSheetUrl });
-    const duration = filmRequestSeconds(shots);
+    const duration = fit.seconds;
     // lip-sync guardrail (advisory, never blocks): overstuffed lines drift out of sync near the
     // end of a segment — surfaced so the UI/CLI can suggest trimming before the paid generation
     const dialogueWarnings = dialogueDensityWarnings(shots);
@@ -167,7 +187,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const opts = (options ?? {}) as { width?: number; height?: number };
     const videoOptions = {
       ...(options ?? {}),
-      modelId: model || DEFAULT_FILM_MODEL,
+      modelId: choice.model,
       mode: "video-to-video" as const,
       prompt,
       referenceImageUrls,
@@ -182,7 +202,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     // legacy single-phase path for providers without two-phase task support
     if (!provider.submitVideoTask || !provider.waitForTask) {
       const result = await provider.generateVideo(videoOptions);
-      const saved = await persistFilm(id, result.videoUrls?.[0], model || DEFAULT_FILM_MODEL);
+      const saved = await persistFilm(id, result.videoUrls?.[0], choice.model);
       return NextResponse.json({ ...saved, taskId: result.taskId, modelId: result.modelId, seconds: duration, dialogueWarnings });
     }
 

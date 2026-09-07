@@ -36,9 +36,69 @@ export function filmTotalSeconds(shots: Shot[]): number {
   return shots.reduce((sum, s) => sum + (Number.isFinite(s.duration) ? s.duration : 0), 0);
 }
 
+/** Fallback model for the one-call film pass, used when the configured model can't take references. */
+export const FILM_FALLBACK_MODEL = "bytedance/seedance-2.5/reference-to-video";
+
+export interface FilmModelChoice {
+  /** The model that will actually be billed */
+  model: string;
+  /** The configured model this replaced, when the pipeline had to switch away from it */
+  swappedFrom?: string;
+}
+
+/**
+ * Resolve the model the film pass will actually bill.
+ *
+ * The one-call film pass needs a reference-to-video model, so anything else gets replaced by
+ * the flagship fallback. That swap used to happen silently in the page handlers, which billed
+ * people on a pricier model than the one sitting in their settings (issue #28). It stays a
+ * swap — the pass genuinely cannot run without references — but `swappedFrom` makes it
+ * reportable, so callers can show it and take consent before any money moves.
+ */
+export function resolveFilmModel(configured?: string | null): FilmModelChoice {
+  const model = configured?.trim();
+  if (model && model.includes("/reference-to-video")) return { model };
+  return { model: FILM_FALLBACK_MODEL, ...(model ? { swappedFrom: model } : {}) };
+}
+
+/** The model's own longest single generation, when its schema declares a duration enum. */
+export function modelMaxSeconds(modelId?: string | null): number | undefined {
+  const durations = modelId ? getVideoParamSpec(modelId)?.durationEnum : undefined;
+  return durations?.length ? Math.max(...durations) : undefined;
+}
+
+export interface FilmDurationFit {
+  /** Seconds actually submitted */
+  seconds: number;
+  /** Rounded raw script total */
+  scriptSeconds: number;
+  /** Upper bound applied: the lower of the film cap and the model's own ceiling */
+  cap: number;
+  /** The script is longer than this model can render in one call — the tail would be cut */
+  overflow: boolean;
+}
+
+/**
+ * Duration the film pass will request, against a specific model's ceiling.
+ *
+ * Models differ: Seedance 2.5 renders up to 30s, MiniMax H3 stops at 15s. Clamping only to the
+ * generic 30s cap meant a 30s script on a 15s model was snapped down provider-side and came back
+ * as a silently truncated film. `overflow` lets callers refuse the spend instead.
+ */
+export function filmDurationFit(shots: Shot[], modelId?: string | null): FilmDurationFit {
+  const scriptSeconds = Math.round(filmTotalSeconds(shots));
+  const cap = Math.min(FILM_MAX_SECONDS, modelMaxSeconds(modelId) ?? FILM_MAX_SECONDS);
+  return {
+    seconds: Math.min(cap, Math.max(FILM_MIN_SECONDS, scriptSeconds)),
+    scriptSeconds,
+    cap,
+    overflow: scriptSeconds > cap,
+  };
+}
+
 /** The integer duration actually submitted to the model: rounded sum clamped to 4..30 */
-export function filmRequestSeconds(shots: Shot[]): number {
-  return Math.min(FILM_MAX_SECONDS, Math.max(FILM_MIN_SECONDS, Math.round(filmTotalSeconds(shots))));
+export function filmRequestSeconds(shots: Shot[], modelId?: string | null): number {
+  return filmDurationFit(shots, modelId).seconds;
 }
 
 /** Trim trailing zeros: 3 -> "3", 7.5 -> "7.5" */

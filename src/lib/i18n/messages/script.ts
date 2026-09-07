@@ -114,7 +114,8 @@ export const script: NamespaceMessages = {
     simpleGoPro: "进导演模式精修 →",
     // AI 成片托管链（九宫格→一键整片）：脚本页上唯一的付费点击
     aiFilmCta: "AI 生成成片",
-    aiFilmCostNote: "AI 成片用你自己的模型 Key 按秒计费（一条约 ¥5~35，付给模型平台）；ClipForge 开源免费",
+    aiFilmCostNote: "AI 成片按所选模型的每秒单价计费，直接付给模型平台；单价随模型和分辨率档位差别很大，设置页的模型下拉里有标注。ClipForge 开源免费。",
+    aiFilmModelSwap: "一键整片需要「参考生视频」能力，所以会用 {to} 生成，而不是你设置里的 {from}。两者单价不同，确认前请留意。",
     aiFilmResolve: "检查模型配置…",
     aiFilmSheet: "生成主播四视图定妆照（一次生成锁同人）…",
     aiFilmGrid: "AI 绘制分镜画面（九宫格锁人锁品）…",
@@ -240,7 +241,8 @@ export const script: NamespaceMessages = {
     simpleSubtitle: "Skim the voice-over — happy? Pick a finishing path. Want another take? Regenerate.",
     // AI film chain (storyboard grid → one-call film): the only paid click on this page
     aiFilmCta: "Generate with AI",
-    aiFilmCostNote: "The AI film bills your own model key by the second (roughly $1–5 per video, paid to the model platform); ClipForge itself is free and open source",
+    aiFilmCostNote: "The AI film bills the selected model's per-second rate straight to the model platform. Rates vary widely by model and resolution tier — the settings model picker shows each one. ClipForge itself is free and open source.",
+    aiFilmModelSwap: "The film pass needs reference-to-video, so it will run on {to} rather than the {from} in your settings. The two are priced differently — check before confirming.",
     aiFilmResolve: "Checking model setup…",
     aiFilmSheet: "Generating the presenter's four-view reference sheet (identity locked in one pass)…",
     aiFilmGrid: "AI drawing the storyboard frames (grid-locked identity)…",

@@ -36,6 +36,11 @@ describe("取值选择器", () => {
     expect(pickEnumDuration([-1, 4, 5], 2)).toBe(4); // -1 auto sentinel filtered out
   });
 
+  it("pickResolution：4k-esr 这类带后缀的 k 简写能被解析（旧实现整档丢弃）", () => {
+    expect(pickResolution(["1080p", "4k-esr"], 2160, 3840)).toBe("4k-esr");
+    expect(pickResolution(["2K", "4k-esr"], 1440, 2560)).toBe("2K");
+  });
+
   it("pickResolution：覆盖请求短边的最小档；无档可覆盖取最大档；同档裸名优先", () => {
     expect(pickResolution(["768P", "2K"], 1080, 1920)).toBe("2K");
     expect(pickResolution(["768P", "2K"], 720, 1280)).toBe("768P");
@@ -43,6 +48,11 @@ describe("取值选择器", () => {
     expect(pickResolution(["480p", "720p", "720p-SR", "1080p-SR", "1440p-SR"], 1080, 1920)).toBe("1080p-SR");
     expect(pickResolution(["720P", "1080P"], 1440, 2560)).toBe("1080P"); // nothing covers 1440 -> largest
     expect(pickResolution(["720p-SR", "720p"], 720, 1280)).toBe("720p"); // plain over suffixed
+    // issue #28: the curated Seedance 2.5 enum omitted native 1080p, so a 1080p request landed
+    // on 1080p-sr — a separately priced upscale product, ~5x the native per-second rate.
+    expect(
+      pickResolution(["480p", "720p", "720p-sr", "1080p", "1080p-sr", "1080p-esr", "1440p-sr", "4k-esr"], 1080, 1920)
+    ).toBe("1080p");
   });
 
   it("pickRatio：数值比例就近；仅 adaptive 时返回 adaptive；已知尺寸时数值优先于 adaptive", () => {
@@ -213,7 +223,7 @@ describe("其余新家族请求体差异", () => {
 });
 
 describe("Seedance 2.5 请求体（旗舰 4-30s，schema 无 seed 参数）", () => {
-  it("i2v：image/last_image、时长 4-30 整档直取、竖屏 1080 取 1080p-sr、ratio 仅 adaptive、seed 不发", () => {
+  it("i2v：image/last_image、时长 4-30 整档直取、竖屏 1080 取原生 1080p、ratio 仅 adaptive、seed 不发", () => {
     const spec = getVideoParamSpec("bytedance/seedance-2.5/image-to-video")!;
     const body = buildAtlasVideoBody("bytedance/seedance-2.5/image-to-video", spec, {
       ...i2vBase,
@@ -229,7 +239,7 @@ describe("Seedance 2.5 请求体（旗舰 4-30s，schema 无 seed 参数）", ()
       image: "https://example.com/first.png",
       last_image: "https://example.com/last.png",
       duration: 22,
-      resolution: "1080p-sr",
+      resolution: "1080p",
       ratio: "adaptive",
       generate_audio: true,
       watermark: false,

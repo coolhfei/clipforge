@@ -34,7 +34,7 @@ export const start: NamespaceMessages = {
     genFree: "🆓 免费快剪",
     genFreeDesc: "真实素材混剪 + 免费配音 · 全程 ¥0 · 约 2 分钟",
     genAi: "✨ AI 生成成片",
-    genAiDesc: "AI 生成画面与口播大片 · 用你的模型 Key 按秒计费（约 ¥5~35/条，付给模型平台）",
+    genAiDesc: "AI 生成画面与口播大片 · 用你的模型 Key 按秒计费，单价随模型和分辨率差别很大，出片前会先给你预览并确认",
     // 带货形式（仅 AI 档出现）
     formLabel: "带货形式",
     form_auto: "智能推荐",
@@ -194,7 +194,7 @@ export const start: NamespaceMessages = {
     genFree: "🆓 Free quick cut",
     genFreeDesc: "Real stock footage + free voice-over · $0 end to end · ~2 min",
     genAi: "✨ AI-generated film",
-    genAiDesc: "AI visuals & spoken lines · billed to your own model key by the second (~$1–5 per video, paid to the platform)",
+    genAiDesc: "AI visuals & spoken lines · billed to your own model key by the second; rates vary widely by model and resolution, and you confirm a preview before anything is charged",
     // 带货形式（仅 AI 档出现）
     formLabel: "Format",
     form_auto: "Smart pick",

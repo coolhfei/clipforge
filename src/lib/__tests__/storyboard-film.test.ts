@@ -4,7 +4,11 @@ import {
   dialogueDensityWarnings,
   filmTotalSeconds,
   filmRequestSeconds,
+  filmDurationFit,
+  resolveFilmModel,
+  modelMaxSeconds,
   FILM_MAX_SECONDS,
+  FILM_FALLBACK_MODEL,
 } from "@/lib/storyboard-film";
 import type { Shot, ScriptCharacter } from "@/lib/db/schema";
 
@@ -248,5 +252,54 @@ describe("referenceQuotaCheck（付费前参考图配额闸）", () => {
     const { referenceQuotaCheck } = await import("@/lib/storyboard-film");
     expect(referenceQuotaCheck(99, "some/unknown-model")).toEqual({ ok: true, count: 99 });
     expect(referenceQuotaCheck(99, "minimax/h3/reference-to-video").ok).toBe(true);
+  });
+});
+
+/**
+ * Model resolution + duration fit (issue #28). The film pass silently swapped the configured
+ * model for the flagship fallback and clamped only to the generic 30s cap, so users were billed
+ * on a model they never chose, and short-ceiling models returned quietly truncated films.
+ */
+describe("一键整片：模型解析与时长适配", () => {
+  it("resolveFilmModel：reference-to-video 模型原样保留，其余回退并记录被替换的模型", () => {
+    expect(resolveFilmModel("alibaba/wan-3.0/reference-to-video")).toEqual({
+      model: "alibaba/wan-3.0/reference-to-video",
+    });
+    expect(resolveFilmModel("bytedance/seedance-2.0/text-to-video")).toEqual({
+      model: FILM_FALLBACK_MODEL,
+      swappedFrom: "bytedance/seedance-2.0/text-to-video",
+    });
+    // nothing configured: fallback with no swap to report
+    expect(resolveFilmModel(undefined)).toEqual({ model: FILM_FALLBACK_MODEL });
+    expect(resolveFilmModel("   ")).toEqual({ model: FILM_FALLBACK_MODEL });
+  });
+
+  it("modelMaxSeconds：读模型自己的时长上限，未知模型返回 undefined", () => {
+    expect(modelMaxSeconds("bytedance/seedance-2.5/reference-to-video")).toBe(30);
+    expect(modelMaxSeconds("minimax/h3/reference-to-video")).toBe(15);
+    expect(modelMaxSeconds("who/knows")).toBeUndefined();
+  });
+
+  it("filmDurationFit：按所选模型的上限夹取，超出时标记 overflow", () => {
+    const long = [mkShot({ shotId: 1, duration: 30 })];
+    // Seedance 2.5 renders the full 30s
+    expect(filmDurationFit(long, "bytedance/seedance-2.5/reference-to-video")).toEqual({
+      seconds: 30,
+      scriptSeconds: 30,
+      cap: 30,
+      overflow: false,
+    });
+    // H3 stops at 15s: the tail would be cut, so the caller must be told before spending
+    expect(filmDurationFit(long, "minimax/h3/reference-to-video")).toEqual({
+      seconds: 15,
+      scriptSeconds: 30,
+      cap: 15,
+      overflow: true,
+    });
+  });
+
+  it("filmRequestSeconds：不传模型时沿用通用 4-30 夹取（向后兼容）", () => {
+    expect(filmRequestSeconds([mkShot({ shotId: 1, duration: 45 })])).toBe(FILM_MAX_SECONDS);
+    expect(filmRequestSeconds([mkShot({ shotId: 1, duration: 20 })], "minimax/h3/reference-to-video")).toBe(15);
   });
 });

@@ -509,6 +509,13 @@ export default function ScriptPage() {
     prompt: string;
     shotCount: number;
     seconds: number;
+    /** The model that will actually be billed — not necessarily the one in settings */
+    model: string;
+    /** Set when the pipeline had to switch away from the configured model */
+    swappedFrom?: string;
+    scriptSeconds: number;
+    modelMaxSeconds: number;
+    durationOverflow: boolean;
     referenceImages: number;
     referenceQuota?: { ok: boolean; count: number; limit?: number };
     dialogueWarnings: { index: number; seconds: number; count: number; limit: number }[];
@@ -522,6 +529,9 @@ export default function ScriptPage() {
       body: JSON.stringify({
         scriptId,
         dryRun: true,
+        // preview the CONFIGURED model: the route resolves it the same way the paid submit does,
+        // so a forced switch shows up in the confirm card instead of only on the invoice (issue #28)
+        model: useSettingsStore.getState().defaultVideoModel,
         // a picked presenter WILL ride as a reference sheet (generated on demand later), so the
         // preview must count its slot now — the dryRun branch only reads truthiness
         ...(presenter && { characterSheetUrl: presenter.referenceImages?.[0] ?? "planned" }),
@@ -637,9 +647,8 @@ export default function ScriptPage() {
         body: JSON.stringify({
           scriptId: currentScript.id,
           provider: vidTarget.provider,
-          model: vidTarget.model.includes("/reference-to-video")
-            ? vidTarget.model
-            : "bytedance/seedance-2.5/reference-to-video",
+          // confirmed in the preview card — never re-derived here, so what was shown is what bills
+          model: filmPreview.model,
           apiKey: vidTarget.apiKey,
           baseUrl: vidTarget.baseUrl,
           ...(sheet && { characterSheetUrl: sheet }),
@@ -848,6 +857,11 @@ export default function ScriptPage() {
               <p className="text-sm text-muted-foreground">
                 {t("aiFilmPreviewMeta", { shots: filmPreview.shotCount, seconds: filmPreview.seconds, refs: filmPreview.referenceImages })}
               </p>
+              {filmPreview.swappedFrom && (
+                <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2.5 text-xs text-amber-600 dark:text-amber-500">
+                  {t("aiFilmModelSwap", { from: filmPreview.swappedFrom, to: filmPreview.model })}
+                </div>
+              )}
               {overQuota && (
                 <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-2.5 text-xs text-destructive">
                   {t("aiFilmQuotaWarn", { count: filmPreview.referenceQuota!.count, limit: filmPreview.referenceQuota!.limit ?? 0 })}

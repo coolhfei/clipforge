@@ -47,7 +47,7 @@ export interface AtlasVideoParamSpec {
   ratioKey?: 'ratio' | 'aspect_ratio'
   ratioEnum?: string[]
   /** Audio on/off boolean field, when the model exposes one */
-  audioKey?: 'generate_audio' | 'sound'
+  audioKey?: 'generate_audio' | 'sound' | 'audio'
   /** How reference materials are expressed (reference-to-video variants only) */
   referenceShape?: ReferenceShape
   /** Max reference IMAGES the schema accepts (reference-to-video variants); omit = unknown, don't gate */
@@ -70,8 +70,18 @@ const SEEDANCE_MINI_RESOLUTIONS = ['480p', '720p', '720p-SR', '1080p-SR', '1440p
 const SEEDANCE_MINI_RATIOS = ['16:9', '4:3', '1:1', '3:4', '9:16', '21:9', 'adaptive']
 // Seedance 2.5: schema also allows -1 (model decides), deliberately excluded — we always send explicit durations
 const SEEDANCE_25_DURATIONS = Array.from({ length: 27 }, (_, i) => i + 4) // 4..30
-const SEEDANCE_25_RESOLUTIONS = ['480p', '720p', '720p-sr', '1080p-sr', '1440p-sr', '4k-sr', '1080p-sr & 60fps']
+// Verified against the published schema (2026-09). Native 480p/720p/1080p are separate products
+// from the -sr/-esr upscale tiers and are priced differently: an earlier transcription omitted
+// native 1080p entirely, so every "1080p" request was resolved to the pricier 1080p-sr (issue #28).
+const SEEDANCE_25_RESOLUTIONS = [
+  '480p', '720p', '720p-sr', '720p-esr',
+  '1080p', '1080p-sr', '1080p-esr', '1080p-esr & 60fps',
+  '1440p-sr', '1440p-esr', '4k-esr',
+]
 const SEEDANCE_25_RATIOS = ['16:9', '4:3', '1:1', '3:4', '9:16', '21:9', 'adaptive']
+const WAN_30_DURATIONS = Array.from({ length: 29 }, (_, i) => i + 2) // 2..30
+const WAN_30_RESOLUTIONS = ['480p', '720p', '1080p', '720p-esr', '1080p-esr', '1440p-esr', '4k-esr']
+const WAN_30_RATIOS = ['adaptive', '16:9', '4:3', '1:1', '3:4', '9:16']
 
 export const ATLAS_VIDEO_PARAM_SPECS: Record<string, AtlasVideoParamSpec> = {
   // --- MiniMax H3 (Hailuo 3.0): native stereo audio, no audio toggle ---
@@ -94,7 +104,7 @@ export const ATLAS_VIDEO_PARAM_SPECS: Record<string, AtlasVideoParamSpec> = {
   'minimax/h3/reference-to-video': {
     referenceShape: 'refers',
     durationEnum: H3_DURATIONS,
-    resolutionEnum: ['768P', '2K'],
+    resolutionEnum: ['480P', '768P', '2K'],
     ratioKey: 'ratio',
     ratioEnum: ['adaptive', '21:9', '16:9', '4:3', '1:1', '3:4', '9:16'],
     requiredDefaults: { resolution: '2K', duration: 8 },
@@ -160,6 +170,26 @@ export const ATLAS_VIDEO_PARAM_SPECS: Record<string, AtlasVideoParamSpec> = {
     resolutionEnum: ['720P', '1080P'],
     ratioKey: 'ratio',
     ratioEnum: ['16:9', '9:16', '1:1', '4:3', '3:4'],
+    supportsSeed: true,
+  },
+  // --- Wan 3.0 / 3.0 Prime (reference-to-video only — the variants whose schemas are verified).
+  // Native 480p/720p/1080p plus -esr upscale tiers; audio costs the same either way. ---
+  'alibaba/wan-3.0/reference-to-video': {
+    referenceShape: 'refers',
+    durationEnum: WAN_30_DURATIONS,
+    resolutionEnum: WAN_30_RESOLUTIONS,
+    ratioKey: 'ratio',
+    ratioEnum: WAN_30_RATIOS,
+    audioKey: 'audio',
+    supportsSeed: true,
+  },
+  'alibaba/wan-3.0-prime/reference-to-video': {
+    referenceShape: 'refers',
+    durationEnum: WAN_30_DURATIONS,
+    resolutionEnum: WAN_30_RESOLUTIONS,
+    ratioKey: 'ratio',
+    ratioEnum: WAN_30_RATIOS,
+    audioKey: 'audio',
     supportsSeed: true,
   },
   // --- ByteDance Seedance 2.5 (flagship: 4-30s durations, no seed param in schema; i2v ratio is adaptive-only) ---
@@ -251,11 +281,13 @@ export function pickEnumDuration(allowed: number[], want: number): number | unde
  */
 function parseResTier(value: string): number | undefined {
   const lower = value.toLowerCase()
-  if (lower === '2k') return 1440
-  if (lower === '4k') return 2160
-  if (lower === '1k') return 1080
-  const m = lower.match(/^(\d+)\s*p/)
-  return m ? Number(m[1]) : undefined
+  const p = lower.match(/^(\d+)\s*p/)
+  if (p) return Number(p[1])
+  // k-shorthands carry suffixes too ("4k-esr"), so match the prefix rather than the whole string
+  const k = lower.match(/^(\d+)\s*k/)
+  if (!k) return undefined
+  const n = Number(k[1])
+  return n === 1 ? 1080 : n === 2 ? 1440 : n === 4 ? 2160 : undefined
 }
 
 /**
