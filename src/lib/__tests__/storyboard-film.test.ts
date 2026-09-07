@@ -307,9 +307,18 @@ describe("一键整片：模型解析与时长适配", () => {
 });
 
 describe("一键整片：花费预估", () => {
-  it("estimateFilmSpend：单价 x 秒数，保留算式所需的三个字段", () => {
-    expect(estimateFilmSpend(0.134, 30)).toEqual({ unitUsd: 0.134, seconds: 30, totalUsd: 4.02 });
-    expect(estimateFilmSpend(0.04, 30)).toEqual({ unitUsd: 0.04, seconds: 30, totalUsd: 1.2 });
+  it("estimateFilmSpend：基准档下 min=max=单价 x 秒数", () => {
+    expect(estimateFilmSpend(0.134, 30, { width: 720, height: 1280 })).toEqual({
+      unitUsd: 0.134, seconds: 30, minUsd: 4.02, maxUsd: 4.02, tierMultiplier: 1,
+    });
+  });
+
+  it("estimateFilmSpend：高分辨率档按实测倍率放大上限（低报才是危险方向）", () => {
+    // measured 2026-09: Seedance 2.5 billed $2.98 for 5s @1080p — 4.45x its $0.134 base rate
+    expect(estimateFilmSpend(0.134, 30, { width: 1080, height: 1920 })).toEqual({
+      unitUsd: 0.134, seconds: 30, minUsd: 4.02, maxUsd: 18.09, tierMultiplier: 4.5,
+    });
+    expect(estimateFilmSpend(0.04, 30, { width: 1080, height: 1920 })!.maxUsd).toBe(5.4);
   });
 
   it("estimateFilmSpend：单价未知时返回 undefined —— 不能把未知当成 0 元", () => {

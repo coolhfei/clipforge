@@ -97,15 +97,54 @@ export function filmDurationFit(shots: Shot[], modelId?: string | null): FilmDur
 }
 
 export interface FilmSpendEstimate {
-  /** USD per second of output, as published by the platform */
+  /** USD per second of output, as published by the platform (its cheapest tier) */
   unitUsd: number;
   seconds: number;
-  /** unitUsd x seconds — the figure shown before the spend */
-  totalUsd: number;
+  /** unitUsd x seconds — the floor, only reached at the base resolution tier */
+  minUsd: number;
+  /** what the run bills at the requested tier, using measured tier multipliers */
+  maxUsd: number;
+  /** 1 at the base tier; >1 where the tier was measured to cost more */
+  tierMultiplier: number;
 }
 
 /**
- * Estimated cost of one film generation.
+ * Cost multiplier over the published base rate, by resolution tier.
+ *
+ * Providers price resolution tiers as separate products, but the catalog publishes ONE
+ * base_price per model — the cheapest tier. Measured on Atlas (2026-09, 5s reference-to-video,
+ * 9:16 vertical, actual invoiced cost):
+ *
+ *   Seedance 2.5 @1080p  $2.98 / 5s = $0.596/s  vs  $0.134 base  ->  4.45x
+ *   Wan 3.0      @1080p  $0.80 / 5s = $0.160/s  vs  $0.040 base  ->  4.00x
+ *
+ * Rounded UP on purpose. A quoted price that reads low is exactly what let a 30s run bill
+ * several times its advertised rate without anyone noticing (issue #28), so the spend cap
+ * compares against the high end, never the floor.
+ */
+export const RESOLUTION_COST_MULTIPLIER: { minHeight: number; multiplier: number }[] = [
+  { minHeight: 1080, multiplier: 4.5 },
+];
+
+/**
+ * Multiplier for a requested output size; 1 (the base tier) when nothing larger matches.
+ *
+ * Keyed on the SHORT side, matching how the provider names its tiers and how pickResolution
+ * chooses one: a 9:16 "720p" frame is 720x1280, so keying on height alone would misread every
+ * portrait video as a tier higher than it is.
+ */
+export function tierMultiplierFor(width: number | undefined, height: number | undefined): number {
+  const sides = [width, height].filter((n): n is number => Number.isFinite(n));
+  if (sides.length === 0) return 1;
+  const shortSide = Math.min(...sides);
+  const hit = RESOLUTION_COST_MULTIPLIER.filter((r) => shortSide >= r.minHeight).sort(
+    (a, b) => b.minHeight - a.minHeight
+  )[0];
+  return hit?.multiplier ?? 1;
+}
+
+/**
+ * Estimated cost range for one film generation.
  *
  * Atlas publishes video pricing per second of output (`price.actual.base_price`, already
  * discounted; models that declare a `unit` all say "second", and every rate spot-checked
@@ -116,10 +155,17 @@ export interface FilmSpendEstimate {
  * Returns undefined when the platform publishes no price: an unknown cost must read as
  * unknown, never as zero (issue #28).
  */
-export function estimateFilmSpend(unitUsd: number | undefined, seconds: number): FilmSpendEstimate | undefined {
+export function estimateFilmSpend(
+  unitUsd: number | undefined,
+  seconds: number,
+  output?: { width?: number; height?: number }
+): FilmSpendEstimate | undefined {
   if (unitUsd === undefined || !Number.isFinite(unitUsd) || unitUsd < 0) return undefined;
   if (!Number.isFinite(seconds) || seconds <= 0) return undefined;
-  return { unitUsd, seconds, totalUsd: Math.round(unitUsd * seconds * 10000) / 10000 };
+  const round = (n: number) => Math.round(n * 10000) / 10000;
+  const minUsd = round(unitUsd * seconds);
+  const tierMultiplier = tierMultiplierFor(output?.width, output?.height);
+  return { unitUsd, seconds, minUsd, maxUsd: round(minUsd * tierMultiplier), tierMultiplier };
 }
 
 /** Parse the platform's published price string into a number, tolerating absent/dirty values. */

@@ -146,7 +146,7 @@ export default function AssetsPage() {
     swappedFrom?: string;
     seconds: number;
     shotCount: number;
-    estimate?: { unitUsd: number; seconds: number; totalUsd: number };
+    estimate?: { unitUsd: number; seconds: number; minUsd: number; maxUsd: number; tierMultiplier: number };
   } | null>(null);
   // on-camera presenter from the character library; their multi-view sheet rides the
   // grid and film passes as an identity reference so the person stops morphing
@@ -1285,7 +1285,7 @@ export default function AssetsPage() {
             <p className="mt-1.5 tabular-nums">
               {filmPlan.estimate
                 ? t("filmEstimate", {
-                    total: filmPlan.estimate.totalUsd.toFixed(2),
+                    total: filmPlan.estimate.maxUsd.toFixed(2),
                     unit: filmPlan.estimate.unitUsd,
                     seconds: filmPlan.estimate.seconds,
                   })

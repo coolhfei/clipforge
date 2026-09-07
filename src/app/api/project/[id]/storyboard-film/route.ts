@@ -109,7 +109,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     if (dryRun) {
       const prompt = buildStoryboardFilmPrompt(shots, script.characters, { characterSheet: !!characterSheetUrl });
-      const estimate = estimateFilmSpend(await unitPriceUsd(choice.model, baseUrl), fit.seconds);
+      const previewOpts = (options ?? {}) as { width?: number; height?: number };
+      const estimate = estimateFilmSpend(await unitPriceUsd(choice.model, baseUrl), fit.seconds, previewOpts);
       // planned reference count: one keyframe per shot (+ the identity sheet when present) —
       // computable before the grid pass has actually rendered the keyframes
       const plannedRefs = shots.length + (characterSheetUrl ? 1 : 0);
@@ -188,12 +189,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     // Runs before the submit, so an over-cap generation costs nothing (issue #28).
     const cap = Number(spendCapUsd);
     if (Number.isFinite(cap) && cap > 0 && !acknowledgeOverCap) {
-      const estimate = estimateFilmSpend(await unitPriceUsd(choice.model, baseUrl), fit.seconds);
-      if (estimate && estimate.totalUsd > cap) {
+      // compare the HIGH end: a floor-priced estimate is exactly what hid the real bill (issue #28)
+      const capOpts = (options ?? {}) as { width?: number; height?: number };
+      const estimate = estimateFilmSpend(await unitPriceUsd(choice.model, baseUrl), fit.seconds, capOpts);
+      if (estimate && estimate.maxUsd > cap) {
         return apiError(
           req,
-          `预估花费 $${estimate.totalUsd.toFixed(2)}（${choice.model} $${estimate.unitUsd}/秒 × ${estimate.seconds} 秒）超过你设置的单次上限 $${cap}——请调高上限、换更便宜的模型，或缩短脚本`,
-          `Estimated $${estimate.totalUsd.toFixed(2)} (${choice.model} at $${estimate.unitUsd}/s x ${estimate.seconds}s) exceeds your per-run cap of $${cap} — raise the cap, pick a cheaper model, or shorten the script`,
+          `预估花费最高 $${estimate.maxUsd.toFixed(2)}（${choice.model} $${estimate.unitUsd}/秒 × ${estimate.seconds} 秒；当前分辨率档实测约为基准价的 ${estimate.tierMultiplier} 倍）超过你设置的单次上限 $${cap}——请调高上限、调低分辨率、换更便宜的模型，或缩短脚本`,
+          `Estimated up to $${estimate.maxUsd.toFixed(2)} (${choice.model} at $${estimate.unitUsd}/s x ${estimate.seconds}s; this resolution tier measured about ${estimate.tierMultiplier}x the base rate) exceeds your per-run cap of $${cap} — raise the cap, lower the resolution, pick a cheaper model, or shorten the script`,
           400
         );
       }

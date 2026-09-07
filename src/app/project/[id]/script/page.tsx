@@ -523,7 +523,7 @@ export default function ScriptPage() {
     referenceQuota?: { ok: boolean; count: number; limit?: number };
     dialogueWarnings: { index: number; seconds: number; count: number; limit: number }[];
     /** Absent when the platform publishes no price — render that as unknown, never as free */
-    estimate?: { unitUsd: number; seconds: number; totalUsd: number };
+    estimate?: { unitUsd: number; seconds: number; minUsd: number; maxUsd: number; tierMultiplier: number };
   } | null>(null);
 
   /** Free dryRun call — full film prompt + counts + warnings, nothing submitted, nothing billed. */
@@ -857,7 +857,7 @@ export default function ScriptPage() {
   if (filmPreview && !aiFilming) {
     const overQuota = filmPreview.referenceQuota && !filmPreview.referenceQuota.ok;
     // cap gate: a priced run above the ceiling needs an explicit tick before it can be confirmed
-    const overCap = !!filmPreview.estimate && spendCapUsd > 0 && filmPreview.estimate.totalUsd > spendCapUsd;
+    const overCap = !!filmPreview.estimate && spendCapUsd > 0 && filmPreview.estimate.maxUsd > spendCapUsd;
     return (
       <div className="min-h-screen grid-bg">
         {headerBar}
@@ -890,7 +890,12 @@ export default function ScriptPage() {
                 {filmPreview.estimate ? (
                   <>
                     <span className="font-semibold tabular-nums">
-                      {t("aiFilmEstimate", { total: filmPreview.estimate.totalUsd.toFixed(2) })}
+                      {filmPreview.estimate.tierMultiplier > 1
+                        ? t("aiFilmEstimateRange", {
+                            min: filmPreview.estimate.minUsd.toFixed(2),
+                            max: filmPreview.estimate.maxUsd.toFixed(2),
+                          })
+                        : t("aiFilmEstimate", { total: filmPreview.estimate.minUsd.toFixed(2) })}
                     </span>
                     {/* the arithmetic stays visible so a wrong per-second assumption is auditable */}
                     <span className="ml-2 text-muted-foreground tabular-nums">
@@ -913,7 +918,7 @@ export default function ScriptPage() {
                     onChange={(e) => setOverCapAck(e.target.checked)}
                     className="mt-0.5 h-4 w-4 accent-primary"
                   />
-                  <span>{t("aiFilmOverCap", { total: filmPreview.estimate!.totalUsd.toFixed(2), cap: spendCapUsd })}</span>
+                  <span>{t("aiFilmOverCap", { total: filmPreview.estimate!.maxUsd.toFixed(2), cap: spendCapUsd })}</span>
                 </label>
               )}
               <details className="rounded-lg border border-border/60 p-3 text-xs">
