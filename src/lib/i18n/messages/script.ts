@@ -115,6 +115,10 @@ export const script: NamespaceMessages = {
     // AI 成片托管链（九宫格→一键整片）：脚本页上唯一的付费点击
     aiFilmCta: "AI 生成成片",
     aiFilmCostNote: "AI 成片按所选模型的每秒单价计费，直接付给模型平台；单价随模型和分辨率档位差别很大，设置页的模型下拉里有标注。ClipForge 开源免费。",
+    aiFilmEstimate: "预估花费 ${total}",
+    aiFilmEstimateFormula: "（{model} ${unit}/秒 × {seconds} 秒，平台基准价，实际以账单为准）",
+    aiFilmEstimateUnknown: "{model} 未公布单价，无法预估花费——请到模型平台确认后再决定是否继续",
+    aiFilmOverCap: "预估 ${total} 超过你设置的单次上限 ${cap}。确认要继续请勾选。",
     aiFilmModelSwap: "一键整片需要「参考生视频」能力，所以会用 {to} 生成，而不是你设置里的 {from}。两者单价不同，确认前请留意。",
     aiFilmResolve: "检查模型配置…",
     aiFilmSheet: "生成主播四视图定妆照（一次生成锁同人）…",
@@ -242,6 +246,10 @@ export const script: NamespaceMessages = {
     // AI film chain (storyboard grid → one-call film): the only paid click on this page
     aiFilmCta: "Generate with AI",
     aiFilmCostNote: "The AI film bills the selected model's per-second rate straight to the model platform. Rates vary widely by model and resolution tier — the settings model picker shows each one. ClipForge itself is free and open source.",
+    aiFilmEstimate: "Estimated ${total}",
+    aiFilmEstimateFormula: "({model} at ${unit}/s x {seconds}s, platform base rate — your invoice is the source of truth)",
+    aiFilmEstimateUnknown: "{model} publishes no unit price, so this run cannot be estimated — check the rate on the model platform before continuing",
+    aiFilmOverCap: "The ${total} estimate exceeds your ${cap} per-run cap. Tick to continue anyway.",
     aiFilmModelSwap: "The film pass needs reference-to-video, so it will run on {to} rather than the {from} in your settings. The two are priced differently — check before confirming.",
     aiFilmResolve: "Checking model setup…",
     aiFilmSheet: "Generating the presenter's four-view reference sheet (identity locked in one pass)…",

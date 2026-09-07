@@ -9,6 +9,8 @@ import {
   modelMaxSeconds,
   FILM_MAX_SECONDS,
   FILM_FALLBACK_MODEL,
+  estimateFilmSpend,
+  parseUnitUsd,
 } from "@/lib/storyboard-film";
 import type { Shot, ScriptCharacter } from "@/lib/db/schema";
 
@@ -301,5 +303,27 @@ describe("一键整片：模型解析与时长适配", () => {
   it("filmRequestSeconds：不传模型时沿用通用 4-30 夹取（向后兼容）", () => {
     expect(filmRequestSeconds([mkShot({ shotId: 1, duration: 45 })])).toBe(FILM_MAX_SECONDS);
     expect(filmRequestSeconds([mkShot({ shotId: 1, duration: 20 })], "minimax/h3/reference-to-video")).toBe(15);
+  });
+});
+
+describe("一键整片：花费预估", () => {
+  it("estimateFilmSpend：单价 x 秒数，保留算式所需的三个字段", () => {
+    expect(estimateFilmSpend(0.134, 30)).toEqual({ unitUsd: 0.134, seconds: 30, totalUsd: 4.02 });
+    expect(estimateFilmSpend(0.04, 30)).toEqual({ unitUsd: 0.04, seconds: 30, totalUsd: 1.2 });
+  });
+
+  it("estimateFilmSpend：单价未知时返回 undefined —— 不能把未知当成 0 元", () => {
+    expect(estimateFilmSpend(undefined, 30)).toBeUndefined();
+    expect(estimateFilmSpend(Number.NaN, 30)).toBeUndefined();
+    expect(estimateFilmSpend(-1, 30)).toBeUndefined();
+    expect(estimateFilmSpend(0.134, 0)).toBeUndefined();
+  });
+
+  it("parseUnitUsd：容忍字符串价与脏值", () => {
+    expect(parseUnitUsd("0.134")).toBe(0.134);
+    expect(parseUnitUsd(0)).toBe(0);
+    expect(parseUnitUsd(undefined)).toBeUndefined();
+    expect(parseUnitUsd("")).toBeUndefined();
+    expect(parseUnitUsd("免费")).toBeUndefined();
   });
 });

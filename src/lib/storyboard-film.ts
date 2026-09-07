@@ -96,6 +96,41 @@ export function filmDurationFit(shots: Shot[], modelId?: string | null): FilmDur
   };
 }
 
+export interface FilmSpendEstimate {
+  /** USD per second of output, as published by the platform */
+  unitUsd: number;
+  seconds: number;
+  /** unitUsd x seconds — the figure shown before the spend */
+  totalUsd: number;
+}
+
+/**
+ * Estimated cost of one film generation.
+ *
+ * Atlas publishes video pricing per second of output (`price.actual.base_price`, already
+ * discounted; models that declare a `unit` all say "second", and every rate spot-checked
+ * against the model docs matched exactly). Callers should render the arithmetic, not just the
+ * total — showing "$0.134/s x 30s" keeps the per-second assumption visible instead of burying
+ * it in a single number that nobody can sanity-check.
+ *
+ * Returns undefined when the platform publishes no price: an unknown cost must read as
+ * unknown, never as zero (issue #28).
+ */
+export function estimateFilmSpend(unitUsd: number | undefined, seconds: number): FilmSpendEstimate | undefined {
+  if (unitUsd === undefined || !Number.isFinite(unitUsd) || unitUsd < 0) return undefined;
+  if (!Number.isFinite(seconds) || seconds <= 0) return undefined;
+  return { unitUsd, seconds, totalUsd: Math.round(unitUsd * seconds * 10000) / 10000 };
+}
+
+/** Parse the platform's published price string into a number, tolerating absent/dirty values. */
+export function parseUnitUsd(raw: string | number | undefined | null): number | undefined {
+  if (raw == null) return undefined;
+  // Number("") is 0, which would turn an absent price into "free" — the one reading we must never produce
+  if (typeof raw === "string" && raw.trim() === "") return undefined;
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 0 ? n : undefined;
+}
+
 /** The integer duration actually submitted to the model: rounded sum clamped to 4..30 */
 export function filmRequestSeconds(shots: Shot[], modelId?: string | null): number {
   return filmDurationFit(shots, modelId).seconds;

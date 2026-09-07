@@ -60,6 +60,8 @@ export interface SettingsState {
   defaultVideoModel: string;
   // 默认分辨率
   defaultResolution: "720p" | "1080p";
+  /** Refuse a single paid generation whose estimate exceeds this many USD (0 = no cap) */
+  spendCapUsd: number;
   // 默认画面比例
   defaultAspectRatio: "9:16" | "16:9" | "1:1";
   // 用户自定义模型（挂在已有平台上的任意 model id）
@@ -96,6 +98,7 @@ export interface SettingsState {
   setDefaultImageModel: (model: string) => void;
   setDefaultVideoModel: (model: string) => void;
   setDefaultResolution: (resolution: "720p" | "1080p") => void;
+  setSpendCapUsd: (usd: number) => void;
   setDefaultAspectRatio: (ratio: "9:16" | "16:9" | "1:1") => void;
   addCustomModel: (model: CustomModel) => void;
   removeCustomModel: (id: string) => void;
@@ -196,6 +199,9 @@ export const useSettingsStore = create<SettingsState>()(
       defaultImageModel: "",
       defaultVideoModel: "",
       defaultResolution: "1080p",
+      // a per-run ceiling, on by default: an unattended run used to be able to spend
+      // whatever the model charged, with no figure shown beforehand (issue #28)
+      spendCapUsd: 5,
       defaultAspectRatio: "9:16",
       customModels: [],
       imageParams: DEFAULT_IMAGE_PARAMS,
@@ -222,6 +228,7 @@ export const useSettingsStore = create<SettingsState>()(
       setDefaultImageModel: (model) => set({ defaultImageModel: model }),
       setDefaultVideoModel: (model) => set({ defaultVideoModel: model }),
       setDefaultResolution: (resolution) => set({ defaultResolution: resolution }),
+      setSpendCapUsd: (usd) => set({ spendCapUsd: Number.isFinite(usd) && usd >= 0 ? usd : 0 }),
       setDefaultAspectRatio: (ratio) => set({ defaultAspectRatio: ratio }),
       addCustomModel: (model) =>
         set((state) => ({ customModels: [...state.customModels, model] })),

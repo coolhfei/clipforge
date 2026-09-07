@@ -15,8 +15,12 @@ import {
   filmDurationFit,
   referenceQuotaCheck,
   resolveFilmModel,
+  estimateFilmSpend,
+  parseUnitUsd,
   FILM_MAX_SECONDS,
 } from "@/lib/storyboard-film";
+import { fetchAtlasCatalog, getCachedAtlasEntry } from "@/lib/providers/atlas-catalog";
+import { ATLAS_BASE_URL } from "@/lib/atlas-onekey";
 import { toRemoteUsableImage } from "@/lib/remote-image";
 import { probeMedia } from "@/lib/media-probe";
 import { recordAiTask, updateAiTask } from "@/lib/ai-tasks";
@@ -50,7 +54,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return apiError(req, "无效的项目ID", "Invalid project id", 400);
     }
     const body = await req.json();
-    const { scriptId, provider: providerName, model, apiKey, baseUrl, options, characterSheetUrl, dryRun } = body as {
+    const { scriptId, provider: providerName, model, apiKey, baseUrl, options, characterSheetUrl, dryRun, spendCapUsd, acknowledgeOverCap } = body as {
       scriptId?: string;
       provider?: string;
       model?: string;
@@ -61,6 +65,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       characterSheetUrl?: string;
       /** Preview only: return the full film prompt + counts + warnings, submit nothing, spend nothing */
       dryRun?: boolean;
+      /** Refuse to submit when the estimate exceeds this many USD (0/omitted = no cap) */
+      spendCapUsd?: number;
+      /** Explicit go-ahead for a generation the cap would otherwise block */
+      acknowledgeOverCap?: boolean;
     };
     if (!scriptId) {
       return apiError(req, "缺少 scriptId", "Missing scriptId", 400);
@@ -101,6 +109,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     if (dryRun) {
       const prompt = buildStoryboardFilmPrompt(shots, script.characters, { characterSheet: !!characterSheetUrl });
+      const estimate = estimateFilmSpend(await unitPriceUsd(choice.model, baseUrl), fit.seconds);
       // planned reference count: one keyframe per shot (+ the identity sheet when present) —
       // computable before the grid pass has actually rendered the keyframes
       const plannedRefs = shots.length + (characterSheetUrl ? 1 : 0);
@@ -117,6 +126,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         referenceImages: plannedRefs,
         referenceQuota: referenceQuotaCheck(plannedRefs, choice.model),
         dialogueWarnings: dialogueDensityWarnings(shots),
+        // undefined when the platform publishes no price — the UI must say "unknown", not "free"
+        ...(estimate && { estimate }),
       });
     }
 
@@ -173,6 +184,21 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         400
       );
     }
+    // spend gate: refuse a run whose estimate blows the caller's cap unless they said go anyway.
+    // Runs before the submit, so an over-cap generation costs nothing (issue #28).
+    const cap = Number(spendCapUsd);
+    if (Number.isFinite(cap) && cap > 0 && !acknowledgeOverCap) {
+      const estimate = estimateFilmSpend(await unitPriceUsd(choice.model, baseUrl), fit.seconds);
+      if (estimate && estimate.totalUsd > cap) {
+        return apiError(
+          req,
+          `预估花费 $${estimate.totalUsd.toFixed(2)}（${choice.model} $${estimate.unitUsd}/秒 × ${estimate.seconds} 秒）超过你设置的单次上限 $${cap}——请调高上限、换更便宜的模型，或缩短脚本`,
+          `Estimated $${estimate.totalUsd.toFixed(2)} (${choice.model} at $${estimate.unitUsd}/s x ${estimate.seconds}s) exceeds your per-run cap of $${cap} — raise the cap, pick a cheaper model, or shorten the script`,
+          400
+        );
+      }
+    }
+
     const referenceImageUrls = (await Promise.all(refInputs.map(toRemoteUsableImage))).filter(
       (u): u is string => !!u
     );
@@ -259,6 +285,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       { error: error instanceof Error ? error.message : errText(req, "一键整片生成失败", "Storyboard film failed") },
       { status: 500 }
     );
+  }
+}
+
+/**
+ * Published per-second price for a model, or undefined when the platform doesn't publish one.
+ * The catalog endpoint is public (no key needed), so the free dryRun can price a run too.
+ */
+async function unitPriceUsd(modelId: string, baseUrl?: string): Promise<number | undefined> {
+  try {
+    await fetchAtlasCatalog(baseUrl?.trim() || ATLAS_BASE_URL);
+    return parseUnitUsd(getCachedAtlasEntry(modelId)?.priceBase);
+  } catch {
+    return undefined; // pricing is advisory — never block a run because the catalog was unreachable
   }
 }
 

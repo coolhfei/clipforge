@@ -254,6 +254,8 @@ export default function SettingsPage() {
     llm,
     tts,
     defaultResolution,
+    spendCapUsd,
+    setSpendCapUsd,
     defaultAspectRatio,
     defaultImageModel,
     defaultVideoModel,
@@ -1025,6 +1027,18 @@ export default function SettingsPage() {
                           ))}
                         </SelectContent>
                       </Select>
+                    </div>
+                    {/* per-run spend cap: a priced generation above this needs an explicit tick */}
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">{t("spendCap")}</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        step={0.5}
+                        value={spendCapUsd}
+                        onChange={(e) => setSpendCapUsd(Number(e.target.value))}
+                      />
+                      <p className="text-[11px] leading-4 text-muted-foreground">{t("spendCapHint")}</p>
                     </div>
                     {/* default aspect ratio */}
                     <div className="space-y-1.5">
