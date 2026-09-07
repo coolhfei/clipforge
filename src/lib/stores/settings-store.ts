@@ -198,7 +198,7 @@ export const useSettingsStore = create<SettingsState>()(
       },
       defaultImageModel: "",
       defaultVideoModel: "",
-      defaultResolution: "1080p",
+      defaultResolution: "720p",
       // a per-run ceiling, on by default: an unattended run used to be able to spend
       // whatever the model charged, with no figure shown beforehand (issue #28)
       spendCapUsd: 5,

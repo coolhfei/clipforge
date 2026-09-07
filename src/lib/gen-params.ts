@@ -67,7 +67,10 @@ export const DEFAULT_IMAGE_PARAMS: ImageGenParams = {
 
 export const DEFAULT_VIDEO_PARAMS: VideoGenParams = {
   aspectRatio: "9:16",
-  resolution: "1080p",
+  // 720p, not 1080p: vertical short video is delivered at phone scale and every platform
+  // re-encodes on upload, so the higher tier mostly buys a bigger invoice. Providers price
+  // resolution tiers separately, and 1080p is a deliberate opt-in rather than the default.
+  resolution: "720p",
   duration: 5,
 };
 

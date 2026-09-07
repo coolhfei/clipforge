@@ -109,6 +109,10 @@ const ATLAS_MODELS: Array<Omit<Model, 'provider'>> = [
   { id: 'vidu/q3-pro/start-end-to-video', name: 'Vidu Q3 Pro (首尾帧过渡)', description: '指定首尾帧生成过渡视频', modes: ['image-to-video'], mediaType: 'video' },
   { id: 'vidu/q3-turbo/image-to-video', name: 'Vidu Q3 Turbo (图生视频)', modes: ['image-to-video'], mediaType: 'video' },
   // --- MiniMax H3 (Hailuo 3.0, launched 2026-07-31: omni-modal, native stereo, up to 2K/15s) ---
+  // Wan 3.0 family: markedly cheaper per second than the Seedance flagship, native 1080p,
+  // full 2-30s range. Only the reference-to-video variants are curated here (schemas verified).
+  { id: 'alibaba/wan-3.0/reference-to-video', name: '万相 3.0 (参考生视频)', description: '省钱之选，$0.04/秒，2-30秒，原生 1080p，带音轨同价', modes: ['image-to-video', 'video-to-video'], mediaType: 'video', supportsAudio: true },
+  { id: 'alibaba/wan-3.0-prime/reference-to-video', name: '万相 3.0 Prime (参考生视频)', description: '万相高配档，$0.061/秒，2-30秒，原生 1080p', modes: ['image-to-video', 'video-to-video'], mediaType: 'video', supportsAudio: true },
   { id: 'minimax/h3/text-to-video', name: 'MiniMax H3 (文生视频)', description: '海螺 3.0 全模态模型，原生立体声，2K，4-15秒', modes: ['text-to-video'], mediaType: 'video', supportsAudio: true },
   { id: 'minimax/h3/image-to-video', name: 'MiniMax H3 (图生视频)', description: '首帧/尾帧图生视频，原生立体声，2K', modes: ['image-to-video'], mediaType: 'video', supportsAudio: true },
   { id: 'minimax/h3/reference-to-video', name: 'MiniMax H3 (参考生视频)', description: '图/视频/音频混合参考，保主体一致，2K', modes: ['image-to-video', 'video-to-video'], mediaType: 'video', supportsAudio: true },

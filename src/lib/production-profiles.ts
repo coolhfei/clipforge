@@ -35,7 +35,8 @@ export const PRODUCTION_PROFILES: Record<ProductionProfileId, ProductionProfile>
   },
   balanced: {
     id: "balanced",
-    resolution: "1080p",
+    // the default profile stays on the cheaper native tier; 品牌大片 is where 1080p is opted into
+    resolution: "720p",
     duration: 5,
     motionStrength: 0.55,
     motionIntensity: "normal",
