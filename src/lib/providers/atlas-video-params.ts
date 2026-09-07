@@ -64,6 +64,7 @@ export interface AtlasVideoParamSpec {
 // ==================== Curated specs (transcribed from published schemas) ====================
 
 const H3_DURATIONS = [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+const H3_MAX_DURATIONS = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
 const KLING_O3_DURATIONS = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
 const SEEDANCE_MINI_DURATIONS = [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
 const SEEDANCE_MINI_RESOLUTIONS = ['480p', '720p', '720p-SR', '1080p-SR', '1440p-SR']
@@ -108,6 +109,18 @@ export const ATLAS_VIDEO_PARAM_SPECS: Record<string, AtlasVideoParamSpec> = {
     ratioKey: 'ratio',
     ratioEnum: ['adaptive', '21:9', '16:9', '4:3', '1:1', '3:4', '9:16'],
     requiredDefaults: { resolution: '2K', duration: 8 },
+  },
+  // --- MiniMax H3 Max: cheapest of the H3 line for per-shot i2v. Native tops out at 768P
+  // (no 1080p), ratio is adaptive-only, and there is no reference-to-video variant, so the
+  // one-call film pass cannot use it. Schema verified 2026-09. ---
+  'minimax/h3-max/image-to-video': {
+    firstFrameKey: 'image',
+    lastFrameKey: 'end_image',
+    durationEnum: H3_MAX_DURATIONS,
+    resolutionEnum: ['480P', '768P', '1440p-sr', '4k-sr'],
+    ratioKey: 'ratio',
+    ratioEnum: ['adaptive'],
+    requiredDefaults: { resolution: '768P', duration: 8 },
   },
   // --- MiniMax Hailuo 2.3 (no audio params, no resolution/ratio params) ---
   'minimax/hailuo-2.3/t2v-standard': { durationEnum: [6, 10] },
